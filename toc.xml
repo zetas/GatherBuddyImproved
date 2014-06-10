@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Addon Author="SpaceWalker" APIVersion="8" Name="GatherBuddyImproved" Description="An improved version of GatherBuddy that filters nodes to only those you can harvest. In addition you may hide Farming nodes. The window is also now transparent.">
-	<Script Name="GeminiAddon.lua"/>
+	<Script Name="GeminiAddon/GeminiAddon.lua"/>
 	<Script Name="CallbackHandler/CallbackHandler-1.0.lua"/>
 	<Script Name="GeminiDB/GeminiDB-1.0.lua"/>
+	<Script Name="GeminiLocale/GeminiLocale.lua"/>
+	<Script Name="Localization/enUS.lua"/>
+    <Script Name="Localization/deDE.lua"/>
+    <Script Name="Localization/frFR.lua"/>	
     <Script Name="GatherBuddyImproved.lua"/>
     <Form Name="GatherBuddyImproved.xml"/>
 </Addon>

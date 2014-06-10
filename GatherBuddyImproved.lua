@@ -1,5 +1,6 @@
 -----------------------------------------------------------------------------------------------
--- Client Lua Script for GatherBuddyImproved
+-- GatherBuddyImproved
+-- Copyright (c) SpaceWalker <ddv@qubitlogic.net> - GPLv3
 -----------------------------------------------------------------------------------------------
  
 require "Window"
@@ -24,7 +25,7 @@ local GatherBuddyImproved = Apollo.GetPackage("Gemini:Addon-1.1").tPackage:NewAd
 -----------------------------------------------------------------------------------------------
 -- Constants
 -----------------------------------------------------------------------------------------------
--- e.g. local kiExampleVariableMax = 999
+
 
 local DEBUG = false
 local SETTLER_RACE_ID = 269 -- This is the RaceID identified for settler resources.
@@ -55,6 +56,9 @@ local dbDefaults = {
   }
 }
 
+local GeminiLocale
+local L
+
 
 -----------------------------------------------------------------------------------------------
 -- Initialization
@@ -62,15 +66,33 @@ local dbDefaults = {
 
 function GatherBuddyImproved:OnInitialize()
 	self.db = Apollo.GetPackage("Gemini:DB-1.0").tPackage:New(self, dbDefaults)
+	GeminiLocale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage
+	L = GeminiLocale:GetLocale("GatherBuddyImproved", true)
+	self:UpdateTranslations()
 
 	Apollo.RegisterSlashCommand("gbi", "OnGatherBuddyImprovedOn", self)
 	self.xmlDoc = XmlDoc.CreateFromFile("GatherBuddyImproved.xml")
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
 end
 
-function GatherBuddyImproved:OnEnable()
+function GatherBuddyImproved:UpdateTranslations()
+	colorCodeTradeskill[L[FARMING]] 	= colorCodeTradeskill[FARMING]
+	colorCodeTradeskill[L[SETTLER]] 	= colorCodeTradeskill[SETTLER]
+	colorCodeTradeskill[L[SURVIVALIST]] = colorCodeTradeskill[SURVIVALIST]
+	colorCodeTradeskill[L[RELICHUNTER]] = colorCodeTradeskill[RELICHUNTER]
+	colorCodeTradeskill[L[MINING]] 		= colorCodeTradeskill[MINING]
+	colorCodeTradeskill[L[FISHING]] 	= colorCodeTradeskill[FISHING]
+
+
 	
+	SETTLER 	= L[SETTLER]
+	SURVIVALIST = L[SURVIVALIST]
+	RELICHUNTER = L[RELICHUNTER]
+	MINING 		= L[MINING]
+	FISHING 	= L[FISHING]
+	FARMING 	= L[FARMING]
 end
+
 
 -----------------------------------------------------------------------------------------------
 -- GatherBuddyImproved OnLoad
@@ -105,6 +127,8 @@ function GatherBuddyImproved:OnDocLoaded()
 		self.db.RegisterCallback(self, "OnDatabaseShutdown", "SaveConfig")
 		
 		Apollo.RegisterEventHandler("UnitCreated", "newUnitCreated", self)
+
+		GeminiLocale:TranslateWindow(L, self.wndCFG)
 	end
 end
 
@@ -140,14 +164,17 @@ function GatherBuddyImproved:AddTradeskills()
 	for idx, value in pairs(CraftingLib.GetKnownTradeskills()) do
 		if type(value) == "table" then
 	    	for k, ts in pairs(value) do
-	        	if ts == SURVIVALIST  then
-					self.db.char.tradeskills[SURVIVALIST] = true
-				elseif ts == MINING then
-					self.db.char.tradeskills[MINING] = true
-				elseif ts == RELICHUNTER then
-					self.db.char.tradeskills[RELICHUNTER] = true
-				end
-	      	end
+				if type(ts) == 'string' then
+					self:Announce('Tradeskill Found: ' .. ts)
+		        	if ts == SURVIVALIST  then
+						self.db.char.tradeskills[SURVIVALIST] = true
+					elseif ts == MINING then
+						self.db.char.tradeskills[MINING] = true
+					elseif ts == RELICHUNTER then
+						self.db.char.tradeskills[RELICHUNTER] = true
+					end
+		      	end
+			end
 	    end
 	end
 end
@@ -167,7 +194,7 @@ function GatherBuddyImproved:SetHideSettler(value)
 	self.db.char.hideSettler = value
 	
 	if value then
-		self:Announce('Hiding settler resources.')
+		self:Announce(L['Hiding settler resources.'])
 		if self.unitList then
 			for idx, v in pairs(self.unitList) do
 				local madeUnit = GameLib.GetUnitById(idx)
@@ -180,7 +207,7 @@ function GatherBuddyImproved:SetHideSettler(value)
 			self.wndInternal:ArrangeChildrenVert(0, SortTableByDist)
 		end
 	else
-		self:Announce('Showing new settler resources. (move around)')
+		self:Announce(L['Showing new settler resources. (move around)'])
 	end
 end
 
@@ -196,7 +223,7 @@ function GatherBuddyImproved:SetHideFarming(value)
 	self.db.char.hideFarming = value
 
 	if value then
-		self:Announce('Hiding farming nodes.')
+		self:Announce(L['Hiding farming resources.'])
 		if self.unitList then
 			for idx, v in pairs(self.unitList) do
 				local madeUnit = GameLib.GetUnitById(idx)
@@ -209,7 +236,7 @@ function GatherBuddyImproved:SetHideFarming(value)
 			self.wndInternal:ArrangeChildrenVert(0, SortTableByDist)
 		end
 	else
-		self:Announce('Showing new farming nodes. (move around)')
+		self:Announce(L['Showing new farming resources. (move around)'])
 	end
 end
 
@@ -242,9 +269,9 @@ function GatherBuddyImproved:OnGatherBuddyImprovedOn()
 	self.wndMain:Show(not self.wndBuddy:IsVisible())
 
 	if self.wndMain:IsVisible() then
-		self:Announce('Enabled')
+		self:Announce(L['Enabled'])
 	else
-		self:Announce('Disabled')
+		self:Announce(L['Disabled'])
 	end
 
 end
@@ -275,12 +302,18 @@ end
 function GatherBuddyImproved:Displayable(unit)
 	local harvestable = unit:GetHarvestRequiredTradeskillName()
 	if harvestable ~= nil and harvestable ~= false then
+		self:debug('Farming?: ' .. tostring(FARMING))
+		self:debug('Relics?: ' .. tostring(RELICHUNTER))
+		if harvestable == FARMING then
+			self:debug('Farming node found: ' .. tostring(self:GetHideFarming()))
+		end
 		if (self:CheckTradeSkill(harvestable)) or 
 		(harvestable == FISHING) or
 		(harvestable == FARMING and self:GetHideFarming() == false) then
 			return true
 		end
 	elseif self:IsSettlerResource(unit) and self:GetHideSettler() == false then
+		self:debug('Settler: ' .. unit:GetType())
 		return true
 	end
 	return false
