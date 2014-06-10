@@ -165,7 +165,7 @@ function GatherBuddyImproved:AddTradeskills()
 		if type(value) == "table" then
 	    	for k, ts in pairs(value) do
 				if type(ts) == 'string' then
-					self:Announce('Tradeskill Found: ' .. ts)
+					self:debug('Tradeskill Found: ' .. ts)
 		        	if ts == SURVIVALIST  then
 						self.db.char.tradeskills[SURVIVALIST] = true
 					elseif ts == MINING then
