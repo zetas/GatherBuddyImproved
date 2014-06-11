@@ -17,6 +17,7 @@ require "CraftingLib"
 -----------------------------------------------------------------------------------------------
 local GatherBuddyImproved = Apollo.GetPackage("Gemini:Addon-1.1").tPackage:NewAddon("GatherBuddyImproved", "GBI",
 																							{ 
+																								"Gemini:Logging-1.2",
 																								"Gemini:DB-1.0"
 																							}
 )
@@ -26,8 +27,6 @@ local GatherBuddyImproved = Apollo.GetPackage("Gemini:Addon-1.1").tPackage:NewAd
 -- Constants
 -----------------------------------------------------------------------------------------------
 
-
-local DEBUG = false
 local SETTLER_RACE_ID = 269 -- This is the RaceID identified for settler resources.
 
 -- Use constants to keep from having magic strings and numbers spread around.
@@ -56,8 +55,24 @@ local dbDefaults = {
   }
 }
 
+local GeminiLogging
+local glog
 local GeminiLocale
 local L
+
+GBI_Preload = {}
+GBI_Preload.units = {}
+
+function GBI_Preload_Event(unit)
+	if GBI_Preload then
+		table.insert(GBI_Preload.units, unit)
+	else
+		Apollo.RemoveEventHandler("UnitCreated", self)
+	end
+end
+
+
+Apollo.RegisterEventHandler("UnitCreated", "GBI_Preload_Event")
 
 
 -----------------------------------------------------------------------------------------------
@@ -65,6 +80,13 @@ local L
 -----------------------------------------------------------------------------------------------
 
 function GatherBuddyImproved:OnInitialize()
+	GeminiLogging = Apollo.GetPackage("Gemini:Logging-1.2").tPackage
+	glog = GeminiLogging:GetLogger({
+		level = GeminiLogging.DEBUG,
+		pattern = "%d [%n] %l - %m",
+		appender = "GeminiConsole"
+	})
+
 	self.db = Apollo.GetPackage("Gemini:DB-1.0").tPackage:New(self, dbDefaults)
 	GeminiLocale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage
 	L = GeminiLocale:GetLocale("GatherBuddyImproved", true)
@@ -109,10 +131,11 @@ function GatherBuddyImproved:OnDocLoaded()
 			return
 		end
 		
-		self:AddTradeskills()
-			
-	    self.unitList = {}
-	    self.wndMain:Show(true)
+		--self:AddTradeskills()
+
+		self.unitList = {}
+		self.windowList = {}
+		self.wndMain:Show(true)
 	    self.wndCFG:Show(false)
 	    self.wndBuddy = self.wndMain:FindChild("Buddy")
 		if self.db.char.offsets.nOL then
@@ -121,12 +144,14 @@ function GatherBuddyImproved:OnDocLoaded()
 		self.wndInternal = self.wndBuddy:FindChild("Internal")
 
 		self.timer = ApolloTimer.Create(1.0, true, "OnTimer", self)
-		self.cleanupTimer = ApolloTimer.Create(30.0, true, "OnCleanupTimer", self)
 
 		--Apollo.RegisterEventHandler("WindowManagementReady", "OnWindowManagementReady", self)
 		self.db.RegisterCallback(self, "OnDatabaseShutdown", "SaveConfig")
 		
-		Apollo.RegisterEventHandler("UnitCreated", "newUnitCreated", self)
+		Apollo.RegisterEventHandler("UnitCreated", "OnUnitCreated", self)
+		Apollo.RegisterEventHandler("UnitDestroyed", "OnUnitDestroyed", self)	
+
+		self.delayStartTime = ApolloTimer.Create(0.5, true, "OnDelayedStart", self)
 
 		GeminiLocale:TranslateWindow(L, self.wndCFG)
 	end
@@ -142,17 +167,31 @@ end
 -----------------------------------------------------------------------------------------------
 -- Define general functions here
 
-function GatherBuddyImproved:OnCleanupTimer() 
-	self:AddTradeskills()
+function GatherBuddyImproved:OnDelayedStart()
+	if not GameLib.GetPlayerUnit() then return end
+	
+	self.delayStartTime:Stop()
+
+	for idx, unit in ipairs(GBI_Preload.units) do
+		self:OnUnitCreated(unit)
+		--Print(unit:GetName())
+	end
+	GBI_Preload = nil
 end
 
-function GatherBuddyImproved:debug(msg)
-	if DEBUG then
-		self:Announce(msg)
-	end
-end
 function GatherBuddyImproved:Announce(msg)
 	ChatSystemLib.PostOnChannel(2, 'GBI: ' .. msg)
+end
+
+function GatherBuddyImproved:ClearUnit(unit,nuke)
+	glog:debug('ClearUnit %s %s', unit:GetName(), tostring(nuke))
+	local uId = unit:GetId()
+	if self.unitList[uId] then self.unitList[uId] = nil
+	end
+	if self.windowList[uId] then 
+		self.windowList[uId].wnd:Destroy()
+		self.windowList[uId] = nil
+	end
 end
 
 function GatherBuddyImproved:OnConfigure(sCommand, sArgs)
@@ -160,31 +199,19 @@ function GatherBuddyImproved:OnConfigure(sCommand, sArgs)
 	self:ToggleWindow()
 end
 
-function GatherBuddyImproved:AddTradeskills()
-	for idx, value in pairs(CraftingLib.GetKnownTradeskills()) do
-		if type(value) == "table" then
-	    	for k, ts in pairs(value) do
-				if type(ts) == 'string' then
-					self:debug('Tradeskill Found: ' .. ts)
-		        	if ts == SURVIVALIST  then
-						self.db.char.tradeskills[SURVIVALIST] = true
-					elseif ts == MINING then
-						self.db.char.tradeskills[MINING] = true
-					elseif ts == RELICHUNTER then
-						self.db.char.tradeskills[RELICHUNTER] = true
-					end
-		      	end
-			end
-	    end
-	end
-end
+--function GatherBuddyImproved:AddTradeskills()
+	--for _, profession in pairs(CraftingLib.GetKnownTradeskills()) do
+		--self:debug('Tradeskill Found: ' .. profession.strName .. '|' .. profession.eId)
+		--table.insert(self.db.char.tradeskills, profession.strName)
+	--end
+--end
 
-function GatherBuddyImproved:CheckTradeSkill(ts)
-	if self.db.char.tradeskills[ts] then
-		return true
-	end
-	return false
-end
+--function GatherBuddyImproved:CheckTradeSkill(ts)
+--	if self.db.char.tradeskills[ts] then
+--		return true
+--	end
+--	return false
+--end
 
 function GatherBuddyImproved:SetHideSettler(value)
 	if self.db.char.hideSettler == value then
@@ -195,19 +222,10 @@ function GatherBuddyImproved:SetHideSettler(value)
 	
 	if value then
 		self:Announce(L['Hiding settler resources.'])
-		if self.unitList then
-			for idx, v in pairs(self.unitList) do
-				local madeUnit = GameLib.GetUnitById(idx)
-				local iType = madeUnit:GetType()
-				if iType == SETTLER then
-					v.wnd:Destroy()
-					self.unitList[idx] = nil
-				end
-			end
-			self.wndInternal:ArrangeChildrenVert(0, SortTableByDist)
-		end
+		self:ToggleResourceType(SETTLER, false)
 	else
-		self:Announce(L['Showing new settler resources. (move around)'])
+		self:ToggleResourceType(SETTLER, true)
+		self:Announce(L['Showing new settler resources.'])
 	end
 end
 
@@ -224,24 +242,36 @@ function GatherBuddyImproved:SetHideFarming(value)
 
 	if value then
 		self:Announce(L['Hiding farming resources.'])
-		if self.unitList then
-			for idx, v in pairs(self.unitList) do
-				local madeUnit = GameLib.GetUnitById(idx)
-				local harvestable = madeUnit:GetHarvestRequiredTradeskillName()
-				if harvestable == FARMING then
-					v.wnd:Destroy()
-					self.unitList[idx] = nil
-				end
-			end
-			self.wndInternal:ArrangeChildrenVert(0, SortTableByDist)
-		end
+		self:ToggleResourceType(FARMING, false)
 	else
-		self:Announce(L['Showing new farming resources. (move around)'])
+		self:ToggleResourceType(FARMING, true)
+		self:Announce(L['Showing new farming resources.'])
 	end
 end
 
 function GatherBuddyImproved:GetHideFarming()
 	return self.db.char.hideFarming
+end
+
+function GatherBuddyImproved:ToggleResourceType(rType, rDisplay)
+	local condition = false
+	if self.unitList and self.windowList then
+		for _, unit in pairs(self.unitList) do
+			if rType == FARMING then
+				condition = (unit:GetHarvestRequiredTradeskillName() == rType)
+			elseif rType == SETTLER then
+				condition = (unit:GetType() == SETTLER)
+			end
+			if condition then
+				glog:debug('%s %s', rDisplay and "Showing" or "Hiding", unit:GetName())
+				local win = self.windowList[unit:GetId()]
+				if win then
+					win.display = rDisplay
+				end
+			end
+		end
+		self.wndInternal:ArrangeChildrenVert(0, SortTableByDist)
+	end
 end
 
 function GatherBuddyImproved:InitializeForm()
@@ -301,19 +331,12 @@ end
 
 function GatherBuddyImproved:Displayable(unit)
 	local harvestable = unit:GetHarvestRequiredTradeskillName()
-	if harvestable ~= nil and harvestable ~= false then
-		self:debug('Farming?: ' .. tostring(FARMING))
-		self:debug('Relics?: ' .. tostring(RELICHUNTER))
-		if harvestable == FARMING then
-			self:debug('Farming node found: ' .. tostring(self:GetHideFarming()))
-		end
-		if (self:CheckTradeSkill(harvestable)) or 
-		(harvestable == FISHING) or
-		(harvestable == FARMING and self:GetHideFarming() == false) then
+
+	if unit:GetType() == 'Harvest' then
+		if unit:CanBeHarvestedBy(GameLib.GetPlayerUnit()) then
 			return true
 		end
-	elseif self:IsSettlerResource(unit) and self:GetHideSettler() == false then
-		self:debug('Settler: ' .. unit:GetType())
+	elseif self:IsSettlerResource(unit) then
 		return true
 	end
 	return false
@@ -321,18 +344,65 @@ end
 
 -- on timer
 function GatherBuddyImproved:OnTimer()
-	if self.unitList then
-		for idx, v in pairs(self.unitList) do
-			local madeUnit = GameLib.GetUnitById(idx)
-			if madeUnit then
-				v.dist = self:CalculateInfo(madeUnit, v.wnd)
-			else v.wnd:Destroy()
-				self.unitList[idx] = nil
-			end
+	if self.unitList and GameLib.GetPlayerUnit() then
+		for _, unit in pairs(self.unitList) do
+			local uId = unit:GetId()
+			if self.windowList[uId] == nil then
+				local rShow = true
+
+				if (unit:GetHarvestRequiredTradeskillName() == FARMING and self:GetHideFarming() == true) or
+				(unit:GetType() == SETTLER and self:GetHideSettler() == true) then
+					rShow = false
+				end
+
+	            local newInner = Apollo.LoadForm(self.xmlDoc, "Inner", self.wndInternal, self)
+	            newInner:Show(rShow)
+	            local distToP = self:CalculateInfo(unit, newInner)
+	            self.windowList[uId] = {wnd = newInner; dist = distToP; display = rShow;}
+	            newInner:SetData(self.windowList[uId])
+	        else	      
+	        	local win = self.windowList[uId]
+	        	win.wnd:Show(win.display)
+	        	win.dist = self:CalculateInfo(unit, win.wnd)
+	       	end
+	       	self.wndInternal:ArrangeChildrenVert(0, SortTableByDist)
 		end
-		self.wndInternal:ArrangeChildrenVert(0, SortTableByDist)
 	end
 end
+
+--function GatherBuddyImproved:OnUnitCreated(unit)
+    --if self.unitList[madeUnit:GetId()] == nil then
+        --if GatherBuddyImproved:Displayable(madeUnit) then
+        	--self:debug('Adding: ' .. madeUnit:GetName())
+            --local newInner = Apollo.LoadForm(self.xmlDoc, "Inner", self.wndInternal, self)
+            --newInner:Show(true)
+            --local distToP = self:CalculateInfo(madeUnit, newInner)
+            --self.unitList[madeUnit:GetId()] = {wnd = newInner; dist = distToP;}
+            --newInner:SetData(self.unitList[madeUnit:GetId()])
+            --self.wndInternal:ArrangeChildrenVert(0, SortTableByDist)
+        --else
+        	--self:debug('Not Displayable: ' .. madeUnit:GetName())
+        --end
+    --else
+    	--self:debug('Already Exists: ' .. madeUnit:GetName())
+    --end
+--end
+
+
+function GatherBuddyImproved:OnUnitCreated(unit)
+	if not unit or not unit:IsValid() then return end
+	if self:Displayable(unit) then
+		--self:debug('Adding: ' .. unit:GetName())
+		self.unitList[unit:GetId()] = unit
+	end
+end
+
+function GatherBuddyImproved:OnUnitDestroyed(unit)
+	if self:Displayable(unit) then
+		self:ClearUnit(unit, true)
+	end
+end
+
 
 function GatherBuddyImproved:CalculateInfo(madeUnit, newInner)
 	local harvestable = madeUnit:GetHarvestRequiredTradeskillName()
@@ -362,21 +432,6 @@ function GatherBuddyImproved:CalculateInfo(madeUnit, newInner)
 	end
 	return distToP
 end
-
-function GatherBuddyImproved:newUnitCreated(madeUnit)
-    if self.unitList[madeUnit:GetId()] == nil then
-        if GatherBuddyImproved:Displayable(madeUnit) then
-            local newInner = Apollo.LoadForm(self.xmlDoc, "Inner", self.wndInternal, self)
-            newInner:Show(true)
-            local distToP = self:CalculateInfo(madeUnit, newInner)
-            self.unitList[madeUnit:GetId()] = {wnd = newInner; dist = distToP;}
-            newInner:SetData(self.unitList[madeUnit:GetId()])
-            self.wndInternal:ArrangeChildrenVert(0, SortTableByDist)
-        end
-    end
-end
-
-
 
 ---------------------------------------------------------------------------------------------------
 -- GatherBuddyImprovedConfigForm Functions
