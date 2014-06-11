@@ -15,11 +15,13 @@ require "CraftingLib"
 -----------------------------------------------------------------------------------------------
 -- GatherBuddyImproved Module Definition
 -----------------------------------------------------------------------------------------------
-local GatherBuddyImproved = Apollo.GetPackage("Gemini:Addon-1.1").tPackage:NewAddon("GatherBuddyImproved", "GBI",
-																							{ 
-																								"Gemini:Logging-1.2",
-																								"Gemini:DB-1.0"
-																							}
+local GatherBuddyImproved = Apollo.GetPackage("Gemini:Addon-1.1").tPackage:NewAddon(
+	"GatherBuddyImproved",
+	"GBI",
+	{ 
+		"Gemini:Logging-1.2",
+		"Gemini:DB-1.0"
+	}
 )
 
 
@@ -30,6 +32,9 @@ local GatherBuddyImproved = Apollo.GetPackage("Gemini:Addon-1.1").tPackage:NewAd
 local SETTLER_RACE_ID = 269 -- This is the RaceID identified for settler resources.
 
 -- Use constants to keep from having magic strings and numbers spread around.
+
+-- This block of constants is deprecated with the exception of FARMING and SETTLER as tradeskills are 
+-- no longer tracked
 local FARMING = 'Farmer'
 local SETTLER = 'Collectible' 
 local SURVIVALIST = 'Survivalist'
@@ -48,9 +53,8 @@ local colorCodeTradeskill = {
 
 local dbDefaults = {
 	char = {
-    	hideFarming = false,
+		hideFarming = false,
 		hideSettler = true,
-		tradeskills = {},
 		offsets = {}	 
   }
 }
@@ -60,6 +64,9 @@ local glog
 local GeminiLocale
 local L
 
+-- Thank you so much to Aytherine and Ayth_Quest for providing this preload algorithm. This is what allows us
+-- to grab items on screen refresh. Without this a reloadui will produce an empty unitList thanks to bad event timing
+-- (the units are spawned before our eventhandler is registered)
 GBI_Preload = {}
 GBI_Preload.units = {}
 
@@ -183,7 +190,7 @@ function GatherBuddyImproved:Announce(msg)
 	ChatSystemLib.PostOnChannel(2, 'GBI: ' .. msg)
 end
 
-function GatherBuddyImproved:ClearUnit(unit,nuke)
+function GatherBuddyImproved:ClearUnit(unit)
 	glog:debug('ClearUnit %s %s', unit:GetName(), tostring(nuke))
 	local uId = unit:GetId()
 	if self.unitList[uId] then self.unitList[uId] = nil
@@ -310,17 +317,6 @@ local function SortTableByDist(a, b)
 	return a:GetData().dist < b:GetData().dist
 end
 
---function GatherBuddyImproved:dump(name, val)
---	if type(val) == 'table' then
---		self:debug(name)
---		for k,v in pairs(val) do
---			self:debug(k .. '|' .. v)
---		end
---		self:debug('-----' .. name .. '-----')
---	else
---		self:debug(name .. ': ' .. tostring(val))
---	end
---end
 
 function GatherBuddyImproved:IsSettlerResource(unit)
 	if unit:GetName() ~= nil and unit:GetType() == SETTLER and unit:GetUnitRaceId() == SETTLER_RACE_ID then
@@ -330,8 +326,6 @@ function GatherBuddyImproved:IsSettlerResource(unit)
 end
 
 function GatherBuddyImproved:Displayable(unit)
-	local harvestable = unit:GetHarvestRequiredTradeskillName()
-
 	if unit:GetType() == 'Harvest' then
 		if unit:CanBeHarvestedBy(GameLib.GetPlayerUnit()) then
 			return true
@@ -370,36 +364,16 @@ function GatherBuddyImproved:OnTimer()
 	end
 end
 
---function GatherBuddyImproved:OnUnitCreated(unit)
-    --if self.unitList[madeUnit:GetId()] == nil then
-        --if GatherBuddyImproved:Displayable(madeUnit) then
-        	--self:debug('Adding: ' .. madeUnit:GetName())
-            --local newInner = Apollo.LoadForm(self.xmlDoc, "Inner", self.wndInternal, self)
-            --newInner:Show(true)
-            --local distToP = self:CalculateInfo(madeUnit, newInner)
-            --self.unitList[madeUnit:GetId()] = {wnd = newInner; dist = distToP;}
-            --newInner:SetData(self.unitList[madeUnit:GetId()])
-            --self.wndInternal:ArrangeChildrenVert(0, SortTableByDist)
-        --else
-        	--self:debug('Not Displayable: ' .. madeUnit:GetName())
-        --end
-    --else
-    	--self:debug('Already Exists: ' .. madeUnit:GetName())
-    --end
---end
-
-
 function GatherBuddyImproved:OnUnitCreated(unit)
 	if not unit or not unit:IsValid() then return end
 	if self:Displayable(unit) then
-		--self:debug('Adding: ' .. unit:GetName())
 		self.unitList[unit:GetId()] = unit
 	end
 end
 
 function GatherBuddyImproved:OnUnitDestroyed(unit)
 	if self:Displayable(unit) then
-		self:ClearUnit(unit, true)
+		self:ClearUnit(unit)
 	end
 end
 
@@ -415,6 +389,7 @@ function GatherBuddyImproved:CalculateInfo(madeUnit, newInner)
 	local wndRot = math.deg(math.atan2(rotY, rotX))
 	local tFacing = GameLib:GetPlayerUnit():GetFacing()
 	local pRot = math.deg(math.atan2(tFacing.x, - tFacing.z))
+	-- This is not to set a color based on tradeskill type, it's simply changing the color if the node is above you or below you
 	if math.floor(unitPos.y) < math.floor(playerPos.y) then arrowWnd:SetBGColor(colorCodeTradeskill[MINING])
 	elseif math.floor(unitPos.y) > math.floor(playerPos.y) then arrowWnd:SetBGColor(colorCodeTradeskill[FARMING])
 	end
@@ -427,8 +402,6 @@ function GatherBuddyImproved:CalculateInfo(madeUnit, newInner)
 		newInner:SetBGColor(colorCodeTradeskill[harvestable])
 	elseif itype == SETTLER then
 		newInner:SetBGColor(colorCodeTradeskill[SETTLER])
-	else
-		newInner:SetBGColor(colorCodeTradeskill[FISHING])
 	end
 	return distToP
 end
