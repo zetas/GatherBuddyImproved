@@ -82,7 +82,7 @@ Apollo.RegisterEventHandler("UnitCreated", "GBI_Preload_Event")
 function GatherBuddyImproved:OnInitialize()
 	GeminiLogging = Apollo.GetPackage("Gemini:Logging-1.2").tPackage
 	glog = GeminiLogging:GetLogger({
-		level = GeminiLogging.DEBUG,
+		level = GeminiLogging.FATAL,
 		pattern = "%d [%n] %l - %m",
 		appender = "GeminiConsole"
 	})
