@@ -20,6 +20,7 @@ local GatherBuddyImproved = Apollo.GetPackage("Gemini:Addon-1.1").tPackage:NewAd
 	"GBI",
 	{ 
 		"Gemini:Logging-1.2",
+		"Gemini:Locale-1.0",
 		"Gemini:DB-1.0"
 	}
 )
@@ -104,25 +105,6 @@ function GatherBuddyImproved:OnInitialize()
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
 end
 
-function GatherBuddyImproved:UpdateTranslations()
-	colorCodeTradeskill[L[FARMING]] 	= colorCodeTradeskill[FARMING]
-	colorCodeTradeskill[L[SETTLER]] 	= colorCodeTradeskill[SETTLER]
-	colorCodeTradeskill[L[SURVIVALIST]] = colorCodeTradeskill[SURVIVALIST]
-	colorCodeTradeskill[L[RELICHUNTER]] = colorCodeTradeskill[RELICHUNTER]
-	colorCodeTradeskill[L[MINING]] 		= colorCodeTradeskill[MINING]
-	colorCodeTradeskill[L[FISHING]] 	= colorCodeTradeskill[FISHING]
-
-
-	
-	SETTLER 	= L[SETTLER]
-	SURVIVALIST = L[SURVIVALIST]
-	RELICHUNTER = L[RELICHUNTER]
-	MINING 		= L[MINING]
-	FISHING 	= L[FISHING]
-	FARMING 	= L[FARMING]
-end
-
-
 -----------------------------------------------------------------------------------------------
 -- GatherBuddyImproved OnLoad
 -----------------------------------------------------------------------------------------------
@@ -174,6 +156,23 @@ end
 -----------------------------------------------------------------------------------------------
 -- Define general functions here
 
+function GatherBuddyImproved:UpdateTranslations()
+	colorCodeTradeskill[L[FARMING]] 	= colorCodeTradeskill[FARMING]
+	colorCodeTradeskill[L[SETTLER]] 	= colorCodeTradeskill[SETTLER]
+	colorCodeTradeskill[L[MINING]]		= colorCodeTradeskill[MINING]
+	colorCodeTradeskill[L[RELICHUNTER]] = colorCodeTradeskill[RELICHUNTER]
+	colorCodeTradeskill[L[SURVIVALIST]] = colorCodeTradeskill[SURVIVALIST]
+	colorCodeTradeskill[L[FISHING]] 	= colorCodeTradeskill[FISHING]
+
+	SETTLER 	= L[SETTLER]
+	FARMING 	= L[FARMING]
+	MINING 		= L[MINING]
+	RELICHUNTER = L[RELICHUNTER]
+	SURVIVALIST = L[SURVIVALIST]
+	FISHING		= L[FISHING]
+end
+
+
 function GatherBuddyImproved:OnDelayedStart()
 	if not GameLib.GetPlayerUnit() then return end
 	
@@ -205,20 +204,6 @@ function GatherBuddyImproved:OnConfigure(sCommand, sArgs)
 	self.wndCFG:Show(false)
 	self:ToggleWindow()
 end
-
---function GatherBuddyImproved:AddTradeskills()
-	--for _, profession in pairs(CraftingLib.GetKnownTradeskills()) do
-		--self:debug('Tradeskill Found: ' .. profession.strName .. '|' .. profession.eId)
-		--table.insert(self.db.char.tradeskills, profession.strName)
-	--end
---end
-
---function GatherBuddyImproved:CheckTradeSkill(ts)
---	if self.db.char.tradeskills[ts] then
---		return true
---	end
---	return false
---end
 
 function GatherBuddyImproved:SetHideSettler(value)
 	if self.db.char.hideSettler == value then
