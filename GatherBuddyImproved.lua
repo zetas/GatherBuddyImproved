@@ -311,13 +311,16 @@ function GatherBuddyImproved:IsSettlerResource(unit)
 end
 
 function GatherBuddyImproved:Displayable(unit)
-	if unit:GetType() == 'Harvest' then
-		if unit:CanBeHarvestedBy(GameLib.GetPlayerUnit()) then
+	if GameLib.GetPlayerUnit() then
+		if unit:GetType() == 'Harvest' then
+			if unit:CanBeHarvestedBy(GameLib.GetPlayerUnit()) then
+				return true
+			end
+		elseif self:IsSettlerResource(unit) then
 			return true
 		end
-	elseif self:IsSettlerResource(unit) then
-		return true
 	end
+	
 	return false
 end
 
