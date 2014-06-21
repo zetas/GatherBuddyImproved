@@ -4,12 +4,6 @@
 -----------------------------------------------------------------------------------------------
 
 local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:NewLocale("GatherBuddyImproved", "enUS", true)
-L["Farmer"] = true
-L["Mining"] = true
-L["Survivalist"] = true
-L["Fishing"] = true
-L["Relic Hunter"] = true
-L["Collectible"] = true
 L["Hiding settler resources."] = true
 L["Showing new settler resources."] = true
 L["Hiding farming resources."] = true

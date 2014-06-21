@@ -34,31 +34,40 @@ local SETTLER_RACE_ID = 269 -- This is the RaceID identified for settler resourc
 
 -- Use constants to keep from having magic strings and numbers spread around.
 
--- This block of constants is deprecated with the exception of FARMING and SETTLER as tradeskills are 
--- no longer tracked
-local FARMING = 'Farmer'
+local FARMING = 20
 local SETTLER = 'Collectible' 
-local SURVIVALIST = 'Survivalist'
-local RELICHUNTER = 'Relic Hunter'
-local MINING = 'Mining'
-local FISHING = 'Fishing'
-
-local colorCodeTradeskill = {
-	[FARMING] = ApolloColor.new("bbddd400"),
-	[SURVIVALIST] = ApolloColor.new("bb37dd00"),
-	[RELICHUNTER] = ApolloColor.new("bbdb00dd"),
-	[MINING] = ApolloColor.new("bbdd6a00"),
-	[FISHING] = ApolloColor.new("bb3052dc"),
-	[SETTLER] = ApolloColor.new("bb3052dc") -- Since there's no fishing nodes, i'll use the same color.
-}
+local SURVIVALIST = 15
+local RELICHUNTER = 18
+local MINING = 13
+local FISHING = 19
+local ARROW_BELOW = 99
+local ARROW_ABOVE = 88
 
 local dbDefaults = {
 	char = {
-		hideFarming = false,
-		hideSettler = true,
+		hide = {
+			settler = true,
+			farming = false,
+			relichunter = false,
+			mining = false,
+			fishing = false,
+			survivalist = false
+		},
+		colors = {
+			[FARMING] = ApolloColor.new("bbddd400"),
+			[SURVIVALIST] = ApolloColor.new("bb37dd00"),
+			[RELICHUNTER] = ApolloColor.new("bbdb00dd"),
+			[MINING] = ApolloColor.new("bbdd6a00"),
+			[FISHING] = ApolloColor.new("bb3052dc"),
+			[SETTLER] = ApolloColor.new("bb3052dc"),
+			[ARROW_ABOVE] = ApolloColor.new("bbddd400"),
+			[ARROW_BELOW] = ApolloColor.new("bbdd6a00")
+		},
 		offsets = {}	 
   }
 }
+
+local TradeSkills = {}
 
 local GeminiLogging
 local glog
@@ -90,7 +99,7 @@ Apollo.RegisterEventHandler("UnitCreated", "GBI_Preload_Event")
 function GatherBuddyImproved:OnInitialize()
 	GeminiLogging = Apollo.GetPackage("Gemini:Logging-1.2").tPackage
 	glog = GeminiLogging:GetLogger({
-		level = GeminiLogging.FATAL,
+		level = GeminiLogging.DEBUG,
 		pattern = "%d [%n] %l - %m",
 		appender = "GeminiConsole"
 	})
@@ -98,7 +107,6 @@ function GatherBuddyImproved:OnInitialize()
 	self.db = Apollo.GetPackage("Gemini:DB-1.0").tPackage:New(self, dbDefaults)
 	GeminiLocale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage
 	L = GeminiLocale:GetLocale("GatherBuddyImproved", true)
-	self:UpdateTranslations()
 
 	Apollo.RegisterSlashCommand("gbi", "OnGatherBuddyImprovedOn", self)
 	self.xmlDoc = XmlDoc.CreateFromFile("GatherBuddyImproved.xml")
@@ -114,13 +122,13 @@ end
 function GatherBuddyImproved:OnDocLoaded()
 	if self.xmlDoc ~= nil and self.xmlDoc:IsLoaded() then
 	    self.wndMain = Apollo.LoadForm(self.xmlDoc, "GatherBuddyImprovedForm", nil, self)
-		self.wndCFG = Apollo.LoadForm(self.xmlDoc, "GatherBuddyImprovedConfigForm", nil, self)	
+		self.wndCFG = Apollo.LoadForm(self.xmlDoc, "GBIConfigForm", nil, self)	
 		if self.wndMain == nil then
 			Apollo.AddAddonErrorText(self, "Could not load the main window for some reason.")
 			return
 		end
 		
-		--self:AddTradeskills()
+		self:AddTradeskills()
 
 		self.unitList = {}
 		self.windowList = {}
@@ -156,23 +164,6 @@ end
 -----------------------------------------------------------------------------------------------
 -- Define general functions here
 
-function GatherBuddyImproved:UpdateTranslations()
-	colorCodeTradeskill[L[FARMING]] 	= colorCodeTradeskill[FARMING]
-	colorCodeTradeskill[L[SETTLER]] 	= colorCodeTradeskill[SETTLER]
-	colorCodeTradeskill[L[MINING]]		= colorCodeTradeskill[MINING]
-	colorCodeTradeskill[L[RELICHUNTER]] = colorCodeTradeskill[RELICHUNTER]
-	colorCodeTradeskill[L[SURVIVALIST]] = colorCodeTradeskill[SURVIVALIST]
-	colorCodeTradeskill[L[FISHING]] 	= colorCodeTradeskill[FISHING]
-
-	SETTLER 	= L[SETTLER]
-	FARMING 	= L[FARMING]
-	MINING 		= L[MINING]
-	RELICHUNTER = L[RELICHUNTER]
-	SURVIVALIST = L[SURVIVALIST]
-	FISHING		= L[FISHING]
-end
-
-
 function GatherBuddyImproved:OnDelayedStart()
 	if not GameLib.GetPlayerUnit() then return end
 	
@@ -203,6 +194,9 @@ end
 function GatherBuddyImproved:OnConfigure(sCommand, sArgs)
 	self.wndCFG:Show(false)
 	self:ToggleWindow()
+end
+
+function GatherBuddyImproved:SetHide(prof, hide)
 end
 
 function GatherBuddyImproved:SetHideSettler(value)
@@ -245,6 +239,13 @@ function GatherBuddyImproved:GetHideFarming()
 	return self.db.char.hideFarming
 end
 
+function GatherBuddyImproved:AddTradeskills()
+	for code, id in pairs(CraftingLib.CodeEnumTradeskill) do
+		--Normally we'd build this array in the opposite direction but for speed of lookup, it was done this way.
+		TradeSkills[CraftingLib.GetTradeskillInfo(id).strName] = id
+	end
+end
+
 function GatherBuddyImproved:ToggleResourceType(rType, rDisplay)
 	local condition = false
 	if self.unitList and self.windowList then
@@ -271,8 +272,8 @@ function GatherBuddyImproved:InitializeForm()
 		return
 	end
 	
-	self.wndCFG:FindChild("HideFarmingCheckbox"):SetCheck(self:GetHideFarming())
-	self.wndCFG:FindChild("HideSettlerCheckbox"):SetCheck(self:GetHideSettler())
+	--self.wndCFG:FindChild("HideFarmingCheckbox"):SetCheck(self:GetHideFarming())
+	--self.wndCFG:FindChild("HideSettlerCheckbox"):SetCheck(self:GetHideSettler())
 end
 
 function GatherBuddyImproved:ToggleWindow()
@@ -310,6 +311,8 @@ function GatherBuddyImproved:IsSettlerResource(unit)
 	return false
 end
 
+--Disambiguation: This function is purely to decide if GBI should handle this unit or not.
+--				  it does not filter based on the players choices. That's done in IsHidden
 function GatherBuddyImproved:Displayable(unit)
 	if GameLib.GetPlayerUnit() then
 		if unit:GetType() == 'Harvest' then
@@ -324,6 +327,11 @@ function GatherBuddyImproved:Displayable(unit)
 	return false
 end
 
+--Filter display based on users choices
+function GatherBuddyImproved:IsHidden(unit)
+	
+end
+
 -- on timer
 function GatherBuddyImproved:OnTimer()
 	if self.unitList and GameLib.GetPlayerUnit() then
@@ -332,8 +340,7 @@ function GatherBuddyImproved:OnTimer()
 			if self.windowList[uId] == nil then
 				local rShow = true
 
-				if (unit:GetHarvestRequiredTradeskillName() == FARMING and self:GetHideFarming() == true) or
-				(unit:GetType() == SETTLER and self:GetHideSettler() == true) then
+				if self:IsHidden(unit) then
 					rShow = false
 				end
 
