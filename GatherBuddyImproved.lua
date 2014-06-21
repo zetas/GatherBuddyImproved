@@ -10,6 +10,7 @@ require "ChatSystemLib"
 require "Apollo"
 require "math"
 require "CraftingLib"
+require "PlayerPathLib"
 
  
 -----------------------------------------------------------------------------------------------
@@ -33,37 +34,161 @@ local GatherBuddyImproved = Apollo.GetPackage("Gemini:Addon-1.1").tPackage:NewAd
 local SETTLER_RACE_ID = 269 -- This is the RaceID identified for settler resources.
 
 -- Use constants to keep from having magic strings and numbers spread around.
-
-local FARMING = 20
 local SETTLER = 'Collectible' 
+
+local FARMING 	  = 20
 local SURVIVALIST = 15
 local RELICHUNTER = 18
-local MINING = 13
-local FISHING = 19
+local MINING 	  = 13
+local FISHING 	  = 19
 local ARROW_BELOW = 99
 local ARROW_ABOVE = 88
 
+local CFG_FARMER_BTN = 'FarmingBtn'
+local CFG_MINER_BTN = 'MiningBtn'
+local CFG_SURVIVALIST_BTN = 'SurvivalistBtn'
+local CFG_RELICHUNTER_BTN = 'RelicHunterBtn'
+local CFG_SETTLER_BTN = 'SettlerBtn'
+local CFG_ARROWS_BTN = 'ArrowsBtn'
+
+local CFG_TIER1_BTN = 'Tier1Btn'
+local CFG_TIER2_BTN = 'Tier2Btn'
+local CFG_TIER3_BTN = 'Tier3Btn'
+local CFG_TIER4_BTN = 'Tier4Btn'
+local CFG_TIER5_BTN = 'Tier5Btn'
+
+local CFG_HIDEALL_BTN = 'HideAllBtn'
+local CFG_COLOR_BTN = 'ChangeColorBtn'
+
+local tierRelation = {
+	[CFG_TIER1_BTN] = 1,
+	[CFG_TIER2_BTN] = 2,
+	[CFG_TIER3_BTN] = 3,
+	[CFG_TIER4_BTN] = 4,
+	[CFG_TIER5_BTN] = 5
+}
+
 local dbDefaults = {
 	char = {
-		hide = {
-			settler = true,
-			farming = false,
-			relichunter = false,
-			mining = false,
-			fishing = false,
-			survivalist = false
-		},
 		colors = {
-			[FARMING] = ApolloColor.new("bbddd400"),
+			[FARMING] 	  = ApolloColor.new("bbddd400"),
 			[SURVIVALIST] = ApolloColor.new("bb37dd00"),
 			[RELICHUNTER] = ApolloColor.new("bbdb00dd"),
-			[MINING] = ApolloColor.new("bbdd6a00"),
-			[FISHING] = ApolloColor.new("bb3052dc"),
-			[SETTLER] = ApolloColor.new("bb3052dc"),
+			[MINING] 	  = ApolloColor.new("bbdd6a00"),
+			[SETTLER] 	  = ApolloColor.new("bb3052dc"),
 			[ARROW_ABOVE] = ApolloColor.new("bbddd400"),
 			[ARROW_BELOW] = ApolloColor.new("bbdd6a00")
 		},
-		offsets = {}	 
+		offsets = {},
+		cfgWinState = {
+			[CFG_FARMER_BTN] = {
+				tier = CFG_TIER1_BTN,
+			},
+			[CFG_MINER_BTN] = {
+				tier = CFG_TIER1_BTN,
+			},
+			[CFG_SURVIVALIST_BTN] = {
+				tier = CFG_TIER1_BTN,
+			},
+			[CFG_RELICHUNTER_BTN] = {
+				tier = CFG_TIER1_BTN,
+			},
+			[CFG_SETTLER_BTN] = {
+				tier = CFG_TIER1_BTN,
+			},
+			current = {
+				btn = CFG_FARMER_BTN,
+				section = FARMING
+			}
+		},
+		filters = {
+			[FARMING] = {
+				hide = false,
+				whitelist = {}
+			},
+			[SURVIVALIST] = {
+				hide = 1,
+				whitelist = {}
+			},
+			[RELICHUNTER] = {
+				hide = 1,
+				whitelist = {}
+			},
+			[MINING] = {
+				hide = 1,
+				whitelist = {}
+			},
+			[SETTLER] = {
+				hide = 1,
+				whitelist = {}
+			}
+		}
+  },
+  global = {
+		tradeskills = {
+			[FARMING] = {
+				[1] = {
+				},
+				[2] = {
+				},
+				[3] = {
+				},
+				[4] = {
+				},
+				[5] = {
+				}
+			},
+			[SURVIVALIST] = {
+				[1] = {
+				},
+				[2] = {
+				},
+				[3] = {
+				},
+				[4] = {
+				},
+				[5] = {
+				}
+			},
+			[RELICHUNTER] = {
+				[1] = {
+				},
+				[2] = {
+				},
+				[3] = {
+				},
+				[4] = {
+				},
+				[5] = {
+				}
+			},
+			[MINING] = {
+				[1] = {
+				},
+				[2] = {
+				},
+				[3] = {
+				},
+				[4] = {
+				},
+				[5] = {
+				}
+			},
+			[SETTLER] = {
+				[1] = {
+				},
+				[2] = {
+				},
+				[3] = {
+				},
+				[4] = {
+				},
+				[5] = {
+				}
+			},
+		},
+		nodes_found = {
+		}
   }
 }
 
@@ -73,6 +198,7 @@ local GeminiLogging
 local glog
 local GeminiLocale
 local L
+local Rover
 
 -- Thank you so much to Aytherine and Ayth_Quest for providing this preload algorithm. This is what allows us
 -- to grab items on screen refresh. Without this a reloadui will produce an empty unitList thanks to bad event timing
@@ -111,6 +237,8 @@ function GatherBuddyImproved:OnInitialize()
 	Apollo.RegisterSlashCommand("gbi", "OnGatherBuddyImprovedOn", self)
 	self.xmlDoc = XmlDoc.CreateFromFile("GatherBuddyImproved.xml")
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
+	
+	Rover = Apollo.GetAddon("Rover")
 end
 
 -----------------------------------------------------------------------------------------------
@@ -123,6 +251,7 @@ function GatherBuddyImproved:OnDocLoaded()
 	if self.xmlDoc ~= nil and self.xmlDoc:IsLoaded() then
 	    self.wndMain = Apollo.LoadForm(self.xmlDoc, "GatherBuddyImprovedForm", nil, self)
 		self.wndCFG = Apollo.LoadForm(self.xmlDoc, "GBIConfigForm", nil, self)	
+		self.wndCFGNode = self.wndCFG:FindChild("NodeSelection")
 		if self.wndMain == nil then
 			Apollo.AddAddonErrorText(self, "Could not load the main window for some reason.")
 			return
@@ -244,6 +373,20 @@ function GatherBuddyImproved:AddTradeskills()
 		--Normally we'd build this array in the opposite direction but for speed of lookup, it was done this way.
 		TradeSkills[CraftingLib.GetTradeskillInfo(id).strName] = id
 	end
+	
+	for _,ts in pairs(CraftingLib.GetKnownTradeskills()) do
+		glog:debug('Tradeskill %s with id %d', ts.strName, ts.eId)
+		-- we only want to autoshow based on user tradeskills if the user hasn't hidden it manually
+		if self.db.char.filters[ts.eId] and self.db.char.filters[ts.eId].hide == 1 then
+			self.db.char.filters[ts.eId].hide = false
+		end
+	end
+	
+	local pathlibinfo = PlayerPathLib.GetPlayerPathType()
+	glog:debug('Player path type: %d', pathlibinfo)
+	
+	local tsinfo = CraftingLib.GetKnownTradeskills()
+	Rover:AddWatch('ts info', tsinfo)
 end
 
 function GatherBuddyImproved:ToggleResourceType(rType, rDisplay)
@@ -271,9 +414,27 @@ function GatherBuddyImproved:InitializeForm()
 	if not self.wndCFG then
 		return
 	end
+	self.wndCFGNode:DestroyChildren()
+	local cfgWinState = self.db.char.cfgWinState
 	
-	--self.wndCFG:FindChild("HideFarmingCheckbox"):SetCheck(self:GetHideFarming())
-	--self.wndCFG:FindChild("HideSettlerCheckbox"):SetCheck(self:GetHideSettler())
+	local currentBtn = cfgWinState.current.btn
+	local currentSection = cfgWinState.current.section
+	local tierBtn = cfgWinState[currentBtn].tier
+	local tier = tierRelation[tierBtn]
+	local hideAll = self.db.char.filters[currentSection].hide
+	
+	self.wndCFG:FindChild(currentBtn):SetCheck(true)
+	self.wndCFG:FindChild(tierBtn):SetCheck(true)
+	self.wndCFG:FindChild(CFG_HIDEALL_BTN):SetCheck(hideAll)
+	
+	for name,_ in pairs(self.db.global.tradeskills[currentSection][tier]) do
+		local wlNodeSelect = Apollo.LoadForm(self.xmlDoc, "CustomizeFlairItem", self.wndCFGNode, self)
+		local nodeData = { nodeName = name }
+	    wlNodeSelect:Show(true)
+		wlNodeSelect:SetData(nodeData)
+	    wlNodeSelect:FindChild('CustomizeFlairBtn'):SetText(name)
+		self.wndCFGNode:ArrangeChildrenVert()
+	end	
 end
 
 function GatherBuddyImproved:ToggleWindow()
@@ -311,11 +472,28 @@ function GatherBuddyImproved:IsSettlerResource(unit)
 	return false
 end
 
+function GatherBuddyImproved:AddNewResourceNode(unit)
+	Rover:AddWatch('db', self.db)
+	
+	if not self.db.global.nodes_found[unit:GetName()] then
+		self.db.global.nodes_found[unit:GetName()] = true
+		
+		local harvestable = unit:GetHarvestRequiredTradeskillName()
+		local tier = unit:GetHarvestRequiredTradeskillTier()
+		local name = unit:GetName()
+		
+		if not self.db.global.tradeskills[TradeSkills[harvestable]][tier][name] then
+			self.db.global.tradeskills[TradeSkills[harvestable]][tier][name] = true
+		end
+	end
+end
+
 --Disambiguation: This function is purely to decide if GBI should handle this unit or not.
 --				  it does not filter based on the players choices. That's done in IsHidden
 function GatherBuddyImproved:Displayable(unit)
 	if GameLib.GetPlayerUnit() then
 		if unit:GetType() == 'Harvest' then
+			self:AddNewResourceNode(unit)
 			if unit:CanBeHarvestedBy(GameLib.GetPlayerUnit()) then
 				return true
 			end
@@ -329,7 +507,7 @@ end
 
 --Filter display based on users choices
 function GatherBuddyImproved:IsHidden(unit)
-	
+	return false
 end
 
 -- on timer
@@ -384,9 +562,8 @@ function GatherBuddyImproved:CalculateInfo(madeUnit, newInner)
 	local wndRot = math.deg(math.atan2(rotY, rotX))
 	local tFacing = GameLib:GetPlayerUnit():GetFacing()
 	local pRot = math.deg(math.atan2(tFacing.x, - tFacing.z))
-	-- This is not to set a color based on tradeskill type, it's simply changing the color if the node is above you or below you
-	if math.floor(unitPos.y) < math.floor(playerPos.y) then arrowWnd:SetBGColor(colorCodeTradeskill[MINING])
-	elseif math.floor(unitPos.y) > math.floor(playerPos.y) then arrowWnd:SetBGColor(colorCodeTradeskill[FARMING])
+	if math.floor(unitPos.y) < math.floor(playerPos.y) then arrowWnd:SetBGColor(self.db.char.colors[ARROW_BELOW])
+	elseif math.floor(unitPos.y) > math.floor(playerPos.y) then arrowWnd:SetBGColor(self.db.char.colors[ARROW_ABOVE])
 	end
 	local distToP = math.sqrt((playerPos.x-unitPos.x)^2+(playerPos.y-unitPos.y)^2+(playerPos.z-unitPos.z)^2)
 	if type(wndRot) == "number" then
@@ -394,9 +571,9 @@ function GatherBuddyImproved:CalculateInfo(madeUnit, newInner)
 	end
 	newInner:SetText(unitName .. " - " .. math.floor(distToP) .. "m")
 	if harvestable then
-		newInner:SetBGColor(colorCodeTradeskill[harvestable])
+		newInner:SetBGColor(self.db.char.colors[TradeSkills[harvestable]])
 	elseif itype == SETTLER then
-		newInner:SetBGColor(colorCodeTradeskill[SETTLER])
+		newInner:SetBGColor(self.db.char.colors[SETTLER])
 	end
 	return distToP
 end
