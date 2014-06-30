@@ -387,7 +387,7 @@ Apollo.RegisterEventHandler("UnitCreated", "GBI_Preload_Event")
 function GatherBuddyImproved:OnInitialize()
 	GeminiLogging = Apollo.GetPackage("Gemini:Logging-1.2").tPackage
 	glog = GeminiLogging:GetLogger({
-		level = GeminiLogging.DEBUG,
+		level = GeminiLogging.FATAL,
 		pattern = "%d [%n] %l - %m",
 		appender = "GeminiConsole"
 	})
@@ -759,7 +759,7 @@ function GatherBuddyImproved:OnTimer()
 	            local newInner = Apollo.LoadForm(self.xmlDoc, "Inner", self.wndInternal, self)
 	            newInner:Show(rShow)
 	            local distToP = self:CalculateInfo(unit, newInner)
-	            self.windowList[uId] = {wnd = newInner; dist = distToP; display = rShow;}
+	            self.windowList[uId] = {wnd = newInner; dist = distToP; display = rShow; unit = uId; }
 	            newInner:SetData(self.windowList[uId])
 	        else	      
 	        	local win = self.windowList[uId]
@@ -779,6 +779,7 @@ end
 function GatherBuddyImproved:OnUnitCreated(unit)
 	if not unit or not unit:IsValid() then return end
 	if self:Displayable(unit) then
+		--Rover:AddWatch(unit:GetName(), unit)
 		self.unitList[unit:GetId()] = unit
 	end
 end
@@ -1084,5 +1085,16 @@ function GatherBuddyImproved:OnResourceNodeCheck( wndHandler, wndControl, eMouse
 		glog:debug('Deactivated %s', data.nodeName)
 		self:ModifyWhitelistItem(data.nodeName, false)
 	end
+end
+
+
+---------------------------------------------------------------------------------------------------
+-- Inner Functions
+---------------------------------------------------------------------------------------------------
+function GatherBuddyImproved:OnNodeClick( wndHandler, wndControl, eMouseButton, nLastRelativeMouseX, nLastRelativeMouseY, bDoubleClick, bStopPropagation )
+	local data = wndControl:GetData()
+	local unit = GameLib.GetUnitById(data.unit)
+	
+	unit:ShowHintArrow()
 end
 
