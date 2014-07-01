@@ -103,6 +103,7 @@ local btnSectionRelation = {
 local dbDefaults = {
 	char = {
 		initialized = false,
+		enabled = true,
 		colors = {
 			[FARMING] 	  = "bbddd400",
 			[SURVIVALIST] = "bb37dd00",
@@ -426,7 +427,7 @@ function GatherBuddyImproved:OnDocLoaded()
 
 		self.unitList = {}
 		self.windowList = {}
-		self.wndMain:Show(true)
+		self.wndMain:Show(self.db.char.enabled)
 	    self.wndCFG:Show(false)
 	    self.wndBuddy = self.wndMain:FindChild("Buddy")
 		if self.db.char.offsets.nOL then
@@ -621,8 +622,10 @@ function GatherBuddyImproved:OnGatherBuddyImprovedOn()
 
 	if self.wndMain:IsVisible() then
 		self:Announce(L['Enabled'])
+		self.db.char.enabled = true
 	else
 		self:Announce(L['Disabled'])
+		self.db.char.enabled = false
 	end
 
 end
@@ -1069,7 +1072,7 @@ function GatherBuddyImproved:OnArrowBelowColorChange( wndHandler, wndControl, eM
 end
 
 function GatherBuddyImproved:OnHeaderClick( wndHandler, wndControl, eMouseButton, nLastRelativeMouseX, nLastRelativeMouseY, bDoubleClick, bStopPropagation )
-	ChatSystemLib.Command("/t SpaceWalker@Avatus Your addon rocks!")
+	--ChatSystemLib.Command("/t SpaceWalker@Avatus Your addon rocks!")
 end
 
 ---------------------------------------------------------------------------------------------------
