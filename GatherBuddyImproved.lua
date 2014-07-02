@@ -704,7 +704,8 @@ end
 function GatherBuddyImproved:Identify(unit)
 	local harvestible = unit:GetHarvestRequiredTradeskillName()
 	local data = {
-		nodeName = unit:GetName()
+		nodeName = unit:GetName(),
+		cleanName = CleanName(unit:GetName())
 	}
 		
 	if harvestible then
@@ -718,14 +719,14 @@ end
 
 function GatherBuddyImproved:IsInWhitelist(data)
 	local filter = self.db.char.filters[data.section]
-	if filter.whitelist[data.nodeName] then
+	if filter.whitelist[data.cleanName] then
 		return true
 	end
 	return false
 end
 
 function GatherBuddyImproved:ShouldDisplayUnknownNode(unit)
-	local name = unit:GetName()
+	local name = CleanName(unit:GetName())
 	local harvestable = unit:GetHarvestRequiredTradeskillName()
 	local tsID = TradeSkills[harvestable]
 
@@ -919,7 +920,6 @@ function GatherBuddyImproved:ShowAllNodes()
 		oStr = CraftingLib.GetTradeskillInfo(cState.currentSection).strName
 	end
 
-	
 	self:Announce("Showing all " .. oStr .. " nodes.")
 end
 
