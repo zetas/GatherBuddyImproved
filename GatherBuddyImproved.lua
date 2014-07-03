@@ -682,19 +682,21 @@ end
 --				  it does not filter based on the players choices. That's done in IsHidden
 function GatherBuddyImproved:Displayable(unit)
 	if GameLib.GetPlayerUnit() then
-		if unit:GetType() == HARVEST then
-			--self:AddNewResourceNode(unit)
-			--if unit:CanBeHarvestedBy(GameLib.GetPlayerUnit()) then
-			if unit:GetHarvestRequiredTradeskillName() then
+		if unit:IsValid() then
+			if unit:GetType() == HARVEST then
+				--self:AddNewResourceNode(unit)
+				--if unit:CanBeHarvestedBy(GameLib.GetPlayerUnit()) then
+				if unit:GetHarvestRequiredTradeskillName() then
+					return true
+				end
+			elseif self:IsSettlerResource(unit) then
+				--self:AddNewResourceNode(unit)
+				
+				glog:debug('Found Settler Resource: %s|%d|%s',unit:GetName(), unit:GetUnitRaceId(), unit:GetAffiliationName())
+				
+				--Rover:AddWatch(unit:GetName(), unit)
 				return true
 			end
-		elseif self:IsSettlerResource(unit) then
-			--self:AddNewResourceNode(unit)
-			
-			glog:debug('Found Settler Resource: %s|%d|%s',unit:GetName(), unit:GetUnitRaceId(), unit:GetAffiliationName())
-			
-			--Rover:AddWatch(unit:GetName(), unit)
-			return true
 		end
 	end
 	
@@ -702,6 +704,7 @@ function GatherBuddyImproved:Displayable(unit)
 end
 
 function GatherBuddyImproved:Identify(unit)
+	if not unit:IsValid() then return false end
 	local harvestible = unit:GetHarvestRequiredTradeskillName()
 	local data = {
 		nodeName = unit:GetName(),
@@ -726,6 +729,7 @@ function GatherBuddyImproved:IsInWhitelist(data)
 end
 
 function GatherBuddyImproved:ShouldDisplayUnknownNode(unit)
+	if not unit:IsValid() then return false end
 	local name = CleanName(unit:GetName())
 	local harvestable = unit:GetHarvestRequiredTradeskillName()
 	local tsID = TradeSkills[harvestable]
