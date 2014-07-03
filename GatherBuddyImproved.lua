@@ -265,16 +265,22 @@ local dbDefaults = {
 				},
 				[2] = {
 					['Galeras Tree'] = true,
-					['Ellevar Tree'] = true
+					['Ellevar Tree'] = true,
+					['Auroria Tree'] = true
 				},
 				[3] = {
+					['Dreadmoor Tree'] = true,
 					['Farside Tree'] = true,
-					['Whitevale Tree'] = true
+					['Whitevale Tree'] = true,
+					['Coralus Tree'] = true
 				},
 				[4] = {
+					['Murkmire Tree'] = true,
+					['Wilderrun Tree'] = true,
 					['Malgrave Tree'] = true
 				},
 				[5] = {
+					['Halon Ring Tree'] = true,
 					['Grimvault Tree'] = true
 				}
 			},
