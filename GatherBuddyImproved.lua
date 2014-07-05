@@ -806,6 +806,8 @@ end
 
 
 function GatherBuddyImproved:CalculateInfo(madeUnit, newInner)
+	if not madeUnit or not madeUnit:IsValid() then return end
+	
 	local harvestable = madeUnit:GetHarvestRequiredTradeskillName()
 	local itype = madeUnit:GetType()
 	local unitPos = madeUnit:GetPosition()
