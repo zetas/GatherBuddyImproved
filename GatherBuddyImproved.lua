@@ -322,7 +322,7 @@ local dbDefaults = {
 					['Novacite Node'] = true
 				}
 			},
-			[SETTLER] = { -- Special thanks to ßombshell@Avatus for providing the bulk of this list.
+			[SETTLER] = { 
 				[1] = {
 					['Triple-Arc Batteries'] = true,
 					['Pulsating Power Crystal'] = true,
@@ -355,8 +355,6 @@ local dbDefaults = {
 				}
 			},
 		},
-		nodes_found = {
-		}
   }
 }
 
@@ -653,7 +651,7 @@ local function CleanName(name)
 	
 	cleanName = name:gsub('Overgrown ', '')
 	cleanName = cleanName:gsub('Active ', '')
-	cleanName = cleanName:gsub(' Wurm', '')
+	cleanName = cleanName:gsub(' Wurm', ' Node')
 
 	return cleanName
 end
@@ -666,7 +664,7 @@ end
 --	local tier
 --	local ts
 	
---	if not self.db.global.nodes_found[uName] then
+--	if not self.db.global.nodes_found[uName] then -- nodes_found no longer exists
 --		self.db.global.nodes_found[uName] = true
 		
 --		if unit:GetType() == HARVEST then
@@ -773,8 +771,9 @@ function GatherBuddyImproved:OnTimer()
 	            local newInner = Apollo.LoadForm(self.xmlDoc, "Inner", self.wndInternal, self)
 	            newInner:Show(rShow)
 	            local distToP = self:CalculateInfo(unit, newInner)
-	            self.windowList[uId] = {wnd = newInner; dist = distToP; display = rShow; unit = uId; }
-	            newInner:SetData(self.windowList[uId])
+				local windowData = {wnd = newInner; dist = distToP; display = rShow; unit = uId; }
+	            self.windowList[uId] = windowData
+	            newInner:SetData(windowData)
 	        else	      
 	        	local win = self.windowList[uId]
 				
@@ -1083,10 +1082,6 @@ function GatherBuddyImproved:OnArrowBelowColorChange( wndHandler, wndControl, eM
 	GeminiColor:ShowColorPicker(self, self.OnGeminiArrowBelowColor, true, cColor)
 end
 
-function GatherBuddyImproved:OnHeaderClick( wndHandler, wndControl, eMouseButton, nLastRelativeMouseX, nLastRelativeMouseY, bDoubleClick, bStopPropagation )
-	--ChatSystemLib.Command("/t SpaceWalker@Avatus Your addon rocks!")
-end
-
 ---------------------------------------------------------------------------------------------------
 -- ResourceNodeItem Functions
 ---------------------------------------------------------------------------------------------------
@@ -1108,8 +1103,9 @@ end
 ---------------------------------------------------------------------------------------------------
 function GatherBuddyImproved:OnNodeClick( wndHandler, wndControl, eMouseButton, nLastRelativeMouseX, nLastRelativeMouseY, bDoubleClick, bStopPropagation )
 	local data = wndControl:GetData()
-	local unit = GameLib.GetUnitById(data.unit)
-	
-	unit:ShowHintArrow()
+	if data then
+		local unit = GameLib.GetUnitById(data.unit)
+		unit:ShowHintArrow()
+	end
 end
 
