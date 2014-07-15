@@ -339,8 +339,8 @@ local dbDefaults = {
 				},
 				[4] = {
 					['Resonating Isotopic Rock'] = true,
-					['Warped Exoplating'] = true,
-					['Regenerative Fuelcell'] = true,
+					['Warped Exo-plating'] = true,
+					['Regenerative Fuel Cell'] = true,
 					['Heavy Fused Bone'] = true,
 					['Ancestral Force-Stone'] = true,
 					['Iron-Coil Vine'] = true,
